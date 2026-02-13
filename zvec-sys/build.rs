@@ -2,10 +2,54 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+const ZVEC_GIT_REF: &str = "v0.1.1";
+
+fn ensure_zvec_source(workspace_dir: &Path) -> PathBuf {
+    let zvec_src = workspace_dir.join("vendor/zvec");
+
+    if zvec_src.join("CMakeLists.txt").exists() {
+        println!("cargo:warning=zvec source already present");
+        return zvec_src;
+    }
+
+    println!(
+        "cargo:warning=Cloning zvec {} (this may take a few minutes)...",
+        ZVEC_GIT_REF
+    );
+    let _ = std::fs::create_dir_all(zvec_src.parent().unwrap());
+
+    let status = Command::new("git")
+        .args([
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            ZVEC_GIT_REF,
+            "--recursive",
+            "https://github.com/alibaba/zvec.git",
+            zvec_src.to_str().unwrap(),
+        ])
+        .status()
+        .expect("Failed to execute git clone. Please ensure git is installed.");
+
+    if !status.success() {
+        panic!("git clone failed. Please check your network connection and that git is installed.");
+    }
+
+    zvec_src
+}
+
 fn main() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workspace_dir = manifest_dir.parent().expect("Expected parent directory");
-    let zvec_src = workspace_dir.join("vendor/zvec");
+
+    println!("cargo:rerun-if-env-changed=ZVEC_GIT_REF");
+    println!("cargo:rerun-if-env-changed=ZVEC_BUILD_TYPE");
+    println!("cargo:rerun-if-env-changed=ZVEC_BUILD_PARALLEL");
+    println!("cargo:rerun-if-env-changed=ZVEC_CPU_ARCH");
+    println!("cargo:rerun-if-env-changed=ZVEC_OPENMP");
+
+    let zvec_src = ensure_zvec_source(&workspace_dir);
     let zvec_build = zvec_src.join("build");
     let zvec_lib = zvec_build.join("lib");
 
@@ -17,10 +61,6 @@ fn main() {
     let wrapper_dir = workspace_dir.join("zvec-c-wrapper");
     let wrapper_build = wrapper_dir.join("build");
 
-    println!("cargo:rerun-if-env-changed=ZVEC_BUILD_TYPE");
-    println!("cargo:rerun-if-env-changed=ZVEC_BUILD_PARALLEL");
-
-    // Step 1: Build zvec C++ library if needed
     let zvec_built = zvec_lib.join("libzvec_db.a");
     if !zvec_built.exists() {
         println!("cargo:warning=Building zvec C++ library...");
@@ -29,7 +69,6 @@ fn main() {
         println!("cargo:warning=zvec C++ library already built");
     }
 
-    // Step 2: Build C wrapper
     let wrapper_built = wrapper_build.join("libzvec_c_wrapper.a");
     if !wrapper_built.exists() {
         println!("cargo:warning=Building C wrapper...");
@@ -44,23 +83,35 @@ fn main() {
         println!("cargo:warning=C wrapper already built");
     }
 
-    // Step 3: Generate bindings
     generate_bindings(&wrapper_dir);
 
-    // Step 4: Link libraries
     link_libraries(&zvec_lib, &wrapper_build);
 }
 
 fn build_zvec(_src: &Path, build: &Path, build_type: &str, parallel_jobs: usize) {
     let _ = std::fs::create_dir_all(build);
 
+    let mut cmake_args = vec![
+        format!("-DCMAKE_BUILD_TYPE={}", build_type),
+        "-DBUILD_PYTHON_BINDINGS=OFF".to_string(),
+        "-DBUILD_TOOLS=OFF".to_string(),
+    ];
+
+    if let Ok(arch) = env::var("ZVEC_CPU_ARCH") {
+        cmake_args.push(format!("-DENABLE_{}=ON", arch));
+    }
+
+    if env::var("ZVEC_OPENMP")
+        .map(|v| v == "ON" || v == "1")
+        .unwrap_or(false)
+    {
+        cmake_args.push("-DENABLE_OPENMP=ON".to_string());
+    }
+
+    cmake_args.push("..".to_string());
+
     run(
-        Command::new("cmake").current_dir(build).args([
-            format!("-DCMAKE_BUILD_TYPE={}", build_type).as_str(),
-            "-DBUILD_PYTHON_BINDINGS=OFF",
-            "-DBUILD_TOOLS=OFF",
-            "..",
-        ]),
+        Command::new("cmake").current_dir(build).args(&cmake_args),
         "cmake configure for zvec",
     );
 

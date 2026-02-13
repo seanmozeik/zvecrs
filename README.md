@@ -38,17 +38,67 @@ brew install cmake git lz4
 ### Build
 
 ```bash
-# Clone with submodules
-git clone --recursive https://github.com/your-org/zvec-rust-bindings.git
+# Clone the repository
+git clone https://github.com/your-org/zvec-rust-bindings.git
 cd zvec-rust-bindings
 
-# Build (automatically builds zvec C++ and C wrapper)
+# Build (downloads and compiles zvec automatically)
 cargo build --release
 ```
 
-The first build compiles zvec from source (~5-15 minutes). Subsequent builds are fast.
+The first build:
+1. Downloads zvec source from GitHub (~500MB with submodules)
+2. Compiles zvec C++ library (~5-15 minutes)
+3. Compiles the Rust bindings
+
+Subsequent builds are fast - source is cached in `vendor/zvec/`.
 
 > 📖 **Need help?** See the [Build Guide](docs/BUILD.md) for detailed instructions and troubleshooting.
+
+### CPU Architecture Optimizations
+
+zvec can be compiled with CPU-specific optimizations for better vector search performance. By default, zvec auto-detects your CPU architecture.
+
+To manually specify a target architecture, set the `ZVEC_CPU_ARCH` environment variable:
+
+```bash
+# ARM architectures
+ZVEC_CPU_ARCH=ARMV8A cargo build --release
+
+# Intel with AVX-512
+ZVEC_CPU_ARCH=SKYLAKE_AVX512 cargo build --release
+
+# AMD Zen 3
+ZVEC_CPU_ARCH=ZEN3 cargo build --release
+```
+
+**Available options:**
+
+| Architecture | Options |
+|-------------|---------|
+| **Intel** | `NEHALEM`, `SANDYBRIDGE`, `HASWELL`, `BROADWELL`, `SKYLAKE`, `SKYLAKE_AVX512`, `SAPPHIRERAPIDS`, `EMERALDRAPIDS`, `GRANITERAPIDS` |
+| **AMD** | `ZEN1`, `ZEN2`, `ZEN3` |
+| **ARM** | `ARMV8A`, `ARMV8.1A`, `ARMV8.2A`, `ARMV8.3A`, `ARMV8.4A`, `ARMV8.5A`, `ARMV8.6A` |
+
+> 📖 **Full list:** See [zvec's cmake/option.cmake](https://github.com/alibaba/zvec/blob/main/cmake/option.cmake) for all available options and [GCC x86 Options](https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html) for architecture details.
+
+> ⚠️ **Note:** Changing `ZVEC_CPU_ARCH` requires a clean rebuild:
+> ```bash
+> rm -rf vendor/zvec/build
+> ZVEC_CPU_ARCH=SKYLAKE cargo build --release
+> ```
+
+### Build Configuration
+
+Additional environment variables for customizing the build:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ZVEC_GIT_REF` | `v0.1.1` | zvec version to download (tag or branch) |
+| `ZVEC_BUILD_TYPE` | `Release` | CMake build type |
+| `ZVEC_BUILD_PARALLEL` | CPU count | Parallel make jobs |
+| `ZVEC_CPU_ARCH` | auto | CPU architecture optimization |
+| `ZVEC_OPENMP` | off | Set to `ON` or `1` to enable OpenMP |
 
 ## Usage
 
@@ -177,7 +227,7 @@ fn main() -> zvec::Result<()> {
 
 ```
 zvec-rust-bindings/
-├── vendor/zvec/         # Git submodule (zvec C++ library)
+├── vendor/zvec/         # Downloaded at build time (zvec C++ library)
 ├── zvec-c-wrapper/      # C API wrapper for zvec C++ library
 │   ├── include/         # C header files
 │   └── src/             # C++ implementation

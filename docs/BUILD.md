@@ -84,19 +84,20 @@ brew install cmake git rocksdb protobuf lz4 gflags glog yaml-cpp re2
 ## Quick Start
 
 ```bash
-# Clone with submodules
-git clone --recursive https://github.com/your-org/zvec-rust-bindings.git
+# Clone the repository
+git clone https://github.com/your-org/zvec-rust-bindings.git
 cd zvec-rust-bindings
 
-# Build everything (this will take a while on first build)
+# Build everything (downloads zvec source automatically on first build)
 cargo build --release
 ```
 
-The first build compiles:
-1. zvec C++ library (~5-15 minutes depending on your machine)
-2. C wrapper layer (~30 seconds)
-3. Rust bindings (via bindgen)
-4. Rust crate
+The first build:
+1. **Downloads zvec source** from GitHub (~500MB with submodules)
+2. **Compiles zvec C++ library** (~5-15 minutes depending on your machine)
+3. **Compiles C wrapper layer** (~30 seconds)
+4. **Generates Rust FFI bindings** (via bindgen)
+5. **Compiles Rust crate**
 
 Subsequent builds are fast - only changed files are recompiled.
 
@@ -112,7 +113,10 @@ cargo build
 │  zvec-sys/build.rs                                              │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │ 1. Check: Does vendor/zvec/lib/*.a exist?               │   │
+│  │ 0. Check: Does vendor/zvec/CMakeLists.txt exist?        │   │
+│  │    NO → git clone zvec source from GitHub               │   │
+│  │                                                          │   │
+│  │ 1. Check: Does vendor/zvec/build/lib/*.a exist?         │   │
 │  │    NO → Run cmake + make to build zvec                  │   │
 │  │                                                          │   │
 │  │ 2. Check: Does zvec-c-wrapper/build/*.a exist?          │   │
@@ -152,8 +156,11 @@ cargo build
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `ZVEC_GIT_REF` | `v0.1.1` | zvec git ref to download (tag, branch, or commit) |
 | `ZVEC_BUILD_TYPE` | `Release` | CMake build type (`Debug`, `Release`, `RelWithDebInfo`) |
 | `ZVEC_BUILD_PARALLEL` | CPU count | Number of parallel make jobs |
+| `ZVEC_CPU_ARCH` | auto-detect | CPU architecture optimization (see below) |
+| `ZVEC_OPENMP` | off | Set to `ON` or `1` to enable OpenMP support |
 
 ### Examples
 
@@ -170,6 +177,57 @@ ZVEC_BUILD_PARALLEL=2 cargo build
 # Debug build for zvec C++ code
 ZVEC_BUILD_TYPE=Debug cargo build
 ```
+
+### CPU Architecture Optimizations
+
+zvec can be compiled with CPU-specific optimizations for better vector search performance. By default, zvec auto-detects your host CPU architecture.
+
+#### Available Options
+
+| Architecture | Option | GCC Flag |
+|-------------|--------|----------|
+| **Intel Nehalem** | `NEHALEM` | `-march=nehalem` |
+| **Intel Sandy Bridge** | `SANDYBRIDGE` | `-march=sandybridge` |
+| **Intel Haswell** | `HASWELL` | `-march=haswell` |
+| **Intel Broadwell** | `BROADWELL` | `-march=broadwell` |
+| **Intel Skylake** | `SKYLAKE` | `-march=skylake` |
+| **Intel Skylake AVX-512** | `SKYLAKE_AVX512` | `-march=skylake-avx512` |
+| **Intel Sapphire Rapids** | `SAPPHIRERAPIDS` | `-march=sapphirerapids` |
+| **Intel Emerald Rapids** | `EMERALDRAPIDS` | `-march=emeraldrapids` |
+| **Intel Granite Rapids** | `GRANITERAPIDS` | `-march=graniterapids` |
+| **AMD Zen 1** | `ZEN1` | `-march=znver1` |
+| **AMD Zen 2** | `ZEN2` | `-march=znver2` |
+| **AMD Zen 3** | `ZEN3` | `-march=znver3` |
+| **ARMv8-A** | `ARMV8A` | `-march=armv8-a` |
+| **ARMv8.1-A** | `ARMV8.1A` | `-march=armv8.1-a` |
+| **ARMv8.2-A** | `ARMV8.2A` | `-march=armv8.2-a` |
+| **ARMv8.3-A** | `ARMV8.3A` | `-march=armv8.3-a` |
+| **ARMv8.4-A** | `ARMV8.4A` | `-march=armv8.4-a` |
+| **ARMv8.5-A** | `ARMV8.5A` | `-march=armv8.5-a` |
+| **ARMv8.6-A** | `ARMV8.6A` | `-march=armv8.6-a` |
+
+> 📖 **Source:** [zvec cmake/option.cmake](https://github.com/alibaba/zvec/blob/main/cmake/option.cmake)  
+> 📖 **GCC x86:** [GCC x86 Options](https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html)  
+> 📖 **GCC ARM:** [GCC ARM Options](https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html)
+
+#### Usage Examples
+
+```bash
+# ARM with ARMv8-A optimizations
+ZVEC_CPU_ARCH=ARMV8A cargo build --release
+
+# Intel server with AVX-512
+ZVEC_CPU_ARCH=SKYLAKE_AVX512 cargo build --release
+
+# AMD Ryzen with Zen 3 optimizations + OpenMP
+ZVEC_CPU_ARCH=ZEN3 ZVEC_OPENMP=1 cargo build --release
+```
+
+> ⚠️ **Important:** When changing `ZVEC_CPU_ARCH`, you must clean the C++ build:
+> ```bash
+> rm -rf vendor/zvec/build
+> ZVEC_CPU_ARCH=SKYLAKE cargo build --release
+> ```
 
 ### Clean Build
 
@@ -245,13 +303,26 @@ zvec's C++ compilation can use significant memory. Reduce parallel jobs:
 ZVEC_BUILD_PARALLEL=2 cargo build
 ```
 
-### "fatal: not a git repository" during submodule init
+### "git clone failed" during build
 
-If you downloaded the source as a zip/tarball instead of cloning:
+The build downloads zvec source from GitHub. This requires:
+- Network connectivity
+- Git installed and accessible in PATH
 
 ```bash
-git init
-git submodule add https://github.com/alibaba/zvec.git vendor/zvec
+# Verify git is installed
+git --version
+
+# If behind a proxy, configure git
+git config --global http.proxy http://proxy:port
+```
+
+### Pre-built source exists but build fails
+
+If you have a corrupted or partial download:
+
+```bash
+rm -rf vendor/zvec
 cargo build
 ```
 
