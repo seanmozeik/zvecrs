@@ -1,5 +1,5 @@
 [package]
-name = "zvec"
+name = "zvec-bindings"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,7 +10,7 @@ categories = ["database", "science"]
 readme = "README.md"
 
 [dependencies]
-zvec-sys = { path = "../zvec-sys" }
+zvec-sys = { version = "0.1.0", path = "../zvec-sys" }
 thiserror.workspace = true
 
 [dev-dependencies]

@@ -10,13 +10,13 @@ use crate::ffi;
 /// # Example
 ///
 /// ```rust,no_run
-/// use zvec::VectorQuery;
+/// use zvec_bindings::VectorQuery;
 ///
 /// let query = VectorQuery::new("embedding")
 ///     .topk(10)
 ///     .filter("category = 'electronics'")
 ///     .vector(&[0.1, 0.2, 0.3, 0.4])?;
-/// # Ok::<(), zvec::Error>(())
+/// # Ok::<(), zvec_bindings::Error>(())
 /// ```
 pub struct VectorQuery {
     pub(crate) ptr: *mut ffi::zvec_vector_query_t,

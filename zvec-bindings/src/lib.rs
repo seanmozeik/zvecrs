@@ -1,4 +1,4 @@
-//! # zvec - Rust bindings for zvec vector database
+//! # zvec-bindings - Rust bindings for zvec vector database
 //!
 //! zvec is an open-source in-process vector database built on Alibaba's Proxima engine.
 //! This crate provides idiomatic Rust bindings for the zvec C++ library.
@@ -15,9 +15,9 @@
 //! ## Quick Start
 //!
 //! ```rust,no_run
-//! use zvec::{create_and_open, CollectionSchema, Doc, VectorQuery, VectorSchema};
+//! use zvec_bindings::{create_and_open, CollectionSchema, Doc, VectorQuery, VectorSchema};
 //!
-//! # fn main() -> zvec::Result<()> {
+//! # fn main() -> zvec_bindings::Result<()> {
 //! // Create schema with a vector field
 //! let mut schema = CollectionSchema::new("my_collection");
 //! schema.add_field(VectorSchema::fp32("embedding", 128).into())?;
@@ -52,10 +52,10 @@
 //! - **FLAT**: Brute force - exact search, good for small datasets
 //!
 //! ```rust,no_run
-//! use zvec::{IndexParams, MetricType, QuantizeType};
+//! use zvec_bindings::{IndexParams, MetricType, QuantizeType};
 //!
-//! # fn main() -> zvec::Result<()> {
-//! # use zvec::{create_and_open, CollectionSchema, VectorSchema};
+//! # fn main() -> zvec_bindings::Result<()> {
+//! # use zvec_bindings::{create_and_open, CollectionSchema, VectorSchema};
 //! # let mut schema = CollectionSchema::new("test");
 //! # schema.add_field(VectorSchema::fp32("embedding", 128).into())?;
 //! # let collection = create_and_open("./my_db", schema)?;
@@ -72,13 +72,13 @@
 //!
 //! ```toml
 //! [dependencies]
-//! zvec = { version = "0.1", features = ["sync"] }
+//! zvec-bindings = { version = "0.1", features = ["sync"] }
 //! ```
 //!
 //! ```rust,no_run
 //! # #[cfg(feature = "sync")]
-//! # fn main() -> zvec::Result<()> {
-//! use zvec::{create_and_open_shared, SharedCollection, VectorQuery, VectorSchema, CollectionSchema, Doc};
+//! # fn main() -> zvec_bindings::Result<()> {
+//! use zvec_bindings::{create_and_open_shared, SharedCollection, VectorQuery, VectorSchema, CollectionSchema, Doc};
 //!
 //! let mut schema = CollectionSchema::new("my_collection");
 //! schema.add_field(VectorSchema::fp32("embedding", 128).into())?;
@@ -104,7 +104,7 @@
 //! # Ok(())
 //! # }
 //! # #[cfg(not(feature = "sync"))]
-//! # fn main() -> zvec::Result<()> { Ok(()) }
+//! # fn main() -> zvec_bindings::Result<()> { Ok(()) }
 //! ```
 
 pub use zvec_sys as ffi;
@@ -144,9 +144,9 @@ pub use sync::{create_and_open_shared, open_shared, SharedCollection};
 /// # Example
 ///
 /// ```rust,no_run
-/// use zvec::{create_and_open, CollectionSchema, VectorSchema};
+/// use zvec_bindings::{create_and_open, CollectionSchema, VectorSchema};
 ///
-/// # fn main() -> zvec::Result<()> {
+/// # fn main() -> zvec_bindings::Result<()> {
 /// let mut schema = CollectionSchema::new("my_collection");
 /// schema.add_field(VectorSchema::fp32("embedding", 128).into())?;
 ///
@@ -174,9 +174,9 @@ pub fn create_and_open<P: AsRef<std::path::Path>>(
 /// # Example
 ///
 /// ```rust,no_run
-/// use zvec::open;
+/// use zvec_bindings::open;
 ///
-/// # fn main() -> zvec::Result<()> {
+/// # fn main() -> zvec_bindings::Result<()> {
 /// let collection = open("./my_db")?;
 /// # Ok(())
 /// # }

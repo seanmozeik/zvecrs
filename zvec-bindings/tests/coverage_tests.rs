@@ -1,15 +1,15 @@
 use tempfile::TempDir;
-use zvec::{
+use zvec_bindings::{
     create_and_open, open, Collection, CollectionSchema, DataType, Doc, FieldSchema,
     GroupByVectorQuery, IndexParams, IndexType, MetricType, QuantizeType, VectorQuery,
     VectorSchema,
 };
 
-fn tempdir() -> zvec::Result<TempDir> {
-    tempfile::tempdir().map_err(|e| zvec::Error::InternalError(e.to_string()))
+fn tempdir() -> zvec_bindings::Result<TempDir> {
+    tempfile::tempdir().map_err(|e| zvec_bindings::Error::InternalError(e.to_string()))
 }
 
-fn create_collection(path: &std::path::Path) -> zvec::Result<Collection> {
+fn create_collection(path: &std::path::Path) -> zvec_bindings::Result<Collection> {
     let mut schema = CollectionSchema::new("test");
     schema.add_field(VectorSchema::fp32("embedding", 4).into())?;
     create_and_open(path, schema)
@@ -85,7 +85,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_id_methods() -> zvec::Result<()> {
+    fn test_doc_id_methods() -> zvec_bindings::Result<()> {
         let mut doc = Doc::id("test_pk");
         let _ = doc.pk();
 
@@ -102,7 +102,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_setters_all_types() -> zvec::Result<()> {
+    fn test_doc_setters_all_types() -> zvec_bindings::Result<()> {
         let mut doc = Doc::id("test");
 
         doc.set_bool("bool_field", true)?;
@@ -119,7 +119,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_builder_chaining() -> zvec::Result<()> {
+    fn test_doc_builder_chaining() -> zvec_bindings::Result<()> {
         let doc = Doc::id("test")
             .with_pk_mut("updated_pk")
             .with_vector("embedding", &[1.0, 0.0, 0.0, 0.0])?
@@ -224,7 +224,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_query_builder_all_options() -> zvec::Result<()> {
+    fn test_query_builder_all_options() -> zvec_bindings::Result<()> {
         let query = VectorQuery::new("embedding")
             .topk(100)
             .filter("count > 10")
@@ -238,7 +238,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_query_sparse_vector() -> zvec::Result<()> {
+    fn test_query_sparse_vector() -> zvec_bindings::Result<()> {
         let query = VectorQuery::new("sparse_embedding")
             .topk(10)
             .sparse_vector(&[1, 5, 10], &[0.5, 0.3, 0.2])?;
@@ -248,7 +248,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_group_by_query_builder() -> zvec::Result<()> {
+    fn test_group_by_query_builder() -> zvec_bindings::Result<()> {
         let query = GroupByVectorQuery::new("embedding")
             .group_by("category")
             .group_count(5)
@@ -260,7 +260,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_collection_path() -> zvec::Result<()> {
+    fn test_collection_path() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -272,7 +272,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_collection_open() -> zvec::Result<()> {
+    fn test_collection_open() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -287,7 +287,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_collection_optimize() -> zvec::Result<()> {
+    fn test_collection_optimize() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -298,7 +298,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_collection_drop_index() -> zvec::Result<()> {
+    fn test_collection_drop_index() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -312,7 +312,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_collection_ivf_index() -> zvec::Result<()> {
+    fn test_collection_ivf_index() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -324,7 +324,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_write_results_iteration() -> zvec::Result<()> {
+    fn test_write_results_iteration() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -349,7 +349,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_list_iteration() -> zvec::Result<()> {
+    fn test_doc_list_iteration() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -380,7 +380,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_map_iteration() -> zvec::Result<()> {
+    fn test_doc_map_iteration() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -410,7 +410,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_ref_getters() -> zvec::Result<()> {
+    fn test_doc_ref_getters() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -444,7 +444,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_ref_doc_id_and_score() -> zvec::Result<()> {
+    fn test_doc_ref_doc_id_and_score() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -469,34 +469,34 @@ mod coverage_tests {
 
     #[test]
     fn test_list_registered_metrics() {
-        let metrics = zvec::list_registered_metrics();
+        let metrics = zvec_bindings::list_registered_metrics();
         assert!(!metrics.is_empty());
         assert!(metrics.contains(&"L2".to_string()) || metrics.contains(&"Euclidean".to_string()));
     }
 
     #[test]
     fn test_error_display() {
-        let err = zvec::Error::NotFound("test not found".to_string());
+        let err = zvec_bindings::Error::NotFound("test not found".to_string());
         let msg = format!("{}", err);
         assert!(msg.contains("test not found"));
 
-        let err = zvec::Error::InvalidArgument("bad arg".to_string());
+        let err = zvec_bindings::Error::InvalidArgument("bad arg".to_string());
         let msg = format!("{}", err);
         assert!(msg.contains("bad arg"));
 
-        let err = zvec::Error::AlreadyExists("already here".to_string());
+        let err = zvec_bindings::Error::AlreadyExists("already here".to_string());
         let msg = format!("{}", err);
         assert!(msg.contains("already here"));
 
-        let err = zvec::Error::InternalError("internal".to_string());
+        let err = zvec_bindings::Error::InternalError("internal".to_string());
         let msg = format!("{}", err);
         assert!(msg.contains("internal"));
 
-        let err = zvec::Error::NullPointer;
+        let err = zvec_bindings::Error::NullPointer;
         let msg = format!("{}", err);
         assert!(msg.contains("Null pointer"));
 
-        let err = zvec::Error::DimensionMismatch {
+        let err = zvec_bindings::Error::DimensionMismatch {
             expected: 128,
             actual: 64,
         };
@@ -529,7 +529,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_collection_destroy() -> zvec::Result<()> {
+    fn test_collection_destroy() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -540,7 +540,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_get_all_types() -> zvec::Result<()> {
+    fn test_doc_get_all_types() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -579,7 +579,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_sparse_vector_mismatched_length() -> zvec::Result<()> {
+    fn test_sparse_vector_mismatched_length() -> zvec_bindings::Result<()> {
         let mut doc = Doc::id("test");
         let result = doc.set_sparse_vector("sparse", &[1, 2, 3], &[0.1, 0.2]);
         assert!(result.is_err());
@@ -587,7 +587,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_has_and_has_value() -> zvec::Result<()> {
+    fn test_doc_has_and_has_value() -> zvec_bindings::Result<()> {
         let mut doc = Doc::id("test");
         doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
 
@@ -599,7 +599,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_is_null() -> zvec::Result<()> {
+    fn test_doc_is_null() -> zvec_bindings::Result<()> {
         let mut doc = Doc::id("test");
         doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
 
@@ -616,7 +616,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_list_len_and_is_empty() -> zvec::Result<()> {
+    fn test_doc_list_len_and_is_empty() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -637,7 +637,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_doc_map_is_empty() -> zvec::Result<()> {
+    fn test_doc_map_is_empty() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -654,7 +654,7 @@ mod coverage_tests {
     }
 
     #[test]
-    fn test_write_results_get_out_of_bounds() -> zvec::Result<()> {
+    fn test_write_results_get_out_of_bounds() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_collection(&path)?;
@@ -670,31 +670,31 @@ mod coverage_tests {
 
     #[test]
     fn test_error_types() {
-        let err = zvec::Error::NotFound("test".to_string());
+        let err = zvec_bindings::Error::NotFound("test".to_string());
         assert!(format!("{}", err).contains("test"));
 
-        let err = zvec::Error::AlreadyExists("test".to_string());
+        let err = zvec_bindings::Error::AlreadyExists("test".to_string());
         assert!(format!("{}", err).contains("test"));
 
-        let err = zvec::Error::NotSupported("test".to_string());
+        let err = zvec_bindings::Error::NotSupported("test".to_string());
         assert!(format!("{}", err).contains("test"));
 
-        let err = zvec::Error::PermissionDenied("test".to_string());
+        let err = zvec_bindings::Error::PermissionDenied("test".to_string());
         assert!(format!("{}", err).contains("test"));
 
-        let err = zvec::Error::FailedPrecondition("test".to_string());
+        let err = zvec_bindings::Error::FailedPrecondition("test".to_string());
         assert!(format!("{}", err).contains("test"));
 
-        let err = zvec::Error::Unknown("test".to_string());
+        let err = zvec_bindings::Error::Unknown("test".to_string());
         assert!(format!("{}", err).contains("test"));
 
-        let err = zvec::Error::CollectionNotFound("test".to_string());
+        let err = zvec_bindings::Error::CollectionNotFound("test".to_string());
         assert!(format!("{}", err).contains("test"));
 
-        let err = zvec::Error::IndexNotFound("test".to_string());
+        let err = zvec_bindings::Error::IndexNotFound("test".to_string());
         assert!(format!("{}", err).contains("test"));
 
-        let err = zvec::Error::FieldNotFound("test".to_string());
+        let err = zvec_bindings::Error::FieldNotFound("test".to_string());
         assert!(format!("{}", err).contains("test"));
     }
 }
@@ -704,16 +704,16 @@ mod sync_tests {
     use super::*;
     use std::thread;
     use std::time::Duration;
-    use zvec::{create_and_open_shared, open_shared, SharedCollection};
+    use zvec_bindings::{create_and_open_shared, open_shared, SharedCollection};
 
-    fn create_shared_collection(path: &std::path::Path) -> zvec::Result<SharedCollection> {
+    fn create_shared_collection(path: &std::path::Path) -> zvec_bindings::Result<SharedCollection> {
         let mut schema = CollectionSchema::new("test");
         schema.add_field(VectorSchema::fp32("embedding", 4).into())?;
         create_and_open_shared(path, schema)
     }
 
     #[test]
-    fn test_shared_collection_clone() -> zvec::Result<()> {
+    fn test_shared_collection_clone() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_shared_collection(&path)?;
@@ -729,7 +729,7 @@ mod sync_tests {
     }
 
     #[test]
-    fn test_shared_collection_from_collection() -> zvec::Result<()> {
+    fn test_shared_collection_from_collection() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -745,7 +745,7 @@ mod sync_tests {
     }
 
     #[test]
-    fn test_shared_collection_concurrent_reads() -> zvec::Result<()> {
+    fn test_shared_collection_concurrent_reads() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_shared_collection(&path)?;
@@ -776,7 +776,7 @@ mod sync_tests {
     }
 
     #[test]
-    fn test_shared_collection_concurrent_write_read() -> zvec::Result<()> {
+    fn test_shared_collection_concurrent_write_read() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_shared_collection(&path)?;
@@ -814,7 +814,7 @@ mod sync_tests {
     }
 
     #[test]
-    fn test_shared_collection_fetch() -> zvec::Result<()> {
+    fn test_shared_collection_fetch() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_shared_collection(&path)?;
@@ -830,7 +830,7 @@ mod sync_tests {
     }
 
     #[test]
-    fn test_shared_collection_open() -> zvec::Result<()> {
+    fn test_shared_collection_open() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -845,7 +845,7 @@ mod sync_tests {
     }
 
     #[test]
-    fn test_shared_collection_all_operations() -> zvec::Result<()> {
+    fn test_shared_collection_all_operations() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_shared_collection(&path)?;
@@ -877,7 +877,10 @@ mod sync_tests {
         assert_eq!(fetched.len(), 1);
 
         // Create index
-        let params = zvec::IndexParams::flat(zvec::MetricType::L2, zvec::QuantizeType::Undefined);
+        let params = zvec_bindings::IndexParams::flat(
+            zvec_bindings::MetricType::L2,
+            zvec_bindings::QuantizeType::Undefined,
+        );
         collection.create_index("embedding", params)?;
 
         // Optimize

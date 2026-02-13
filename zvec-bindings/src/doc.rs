@@ -12,13 +12,13 @@ use crate::ffi;
 /// # Example
 ///
 /// ```rust,no_run
-/// use zvec::Doc;
+/// use zvec_bindings::Doc;
 ///
 /// let mut doc = Doc::id("doc_1");
 /// doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
 /// doc.set_int64("count", 42)?;
 /// doc.set_string("name", "example")?;
-/// # Ok::<(), zvec::Error>(())
+/// # Ok::<(), zvec_bindings::Error>(())
 /// ```
 pub struct Doc {
     pub(crate) ptr: *mut ffi::zvec_doc_t,

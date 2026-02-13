@@ -17,9 +17,9 @@ use crate::types::{IndexType, MetricType, QuantizeType};
 /// # Example
 ///
 /// ```rust,no_run
-/// use zvec::{create_and_open, CollectionSchema, Doc, VectorQuery, VectorSchema};
+/// use zvec_bindings::{create_and_open, CollectionSchema, Doc, VectorQuery, VectorSchema};
 ///
-/// # fn main() -> zvec::Result<()> {
+/// # fn main() -> zvec_bindings::Result<()> {
 /// let mut schema = CollectionSchema::new("my_collection");
 /// schema.add_field(VectorSchema::fp32("embedding", 128).into())?;
 ///
@@ -288,7 +288,7 @@ impl Drop for Collection {
 /// # Example
 ///
 /// ```rust,no_run
-/// use zvec::{IndexParams, MetricType, QuantizeType};
+/// use zvec_bindings::{IndexParams, MetricType, QuantizeType};
 ///
 /// // HNSW index with L2 distance
 /// let params = IndexParams::hnsw(16, 200, MetricType::L2, QuantizeType::Undefined);

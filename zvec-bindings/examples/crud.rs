@@ -1,8 +1,8 @@
 use std::fs;
 
-use zvec::{create_and_open, open, CollectionSchema, Doc, FieldSchema, VectorSchema};
+use zvec_bindings::{create_and_open, open, CollectionSchema, Doc, FieldSchema, VectorSchema};
 
-fn main() -> zvec::Result<()> {
+fn main() -> zvec_bindings::Result<()> {
     let path = "./zvec_crud_db";
 
     let _ = fs::remove_dir_all(path);

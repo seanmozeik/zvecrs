@@ -1,11 +1,11 @@
 use std::fs;
 
-use zvec::{
+use zvec_bindings::{
     create_and_open, CollectionSchema, Doc, IndexParams, MetricType, QuantizeType, VectorQuery,
     VectorSchema,
 };
 
-fn main() -> zvec::Result<()> {
+fn main() -> zvec_bindings::Result<()> {
     let path = "./zvec_indexes_db";
     let _ = fs::remove_dir_all(path);
 

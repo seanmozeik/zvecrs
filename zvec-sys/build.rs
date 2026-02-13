@@ -49,7 +49,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=ZVEC_CPU_ARCH");
     println!("cargo:rerun-if-env-changed=ZVEC_OPENMP");
 
-    let zvec_src = ensure_zvec_source(&workspace_dir);
+    let zvec_src = ensure_zvec_source(workspace_dir);
     let zvec_build = zvec_src.join("build");
     let zvec_lib = zvec_build.join("lib");
 

@@ -1,4 +1,4 @@
-use zvec::{
+use zvec_bindings::{
     create_and_open, Collection, CollectionSchema, DataType, Doc, FieldSchema, GroupByVectorQuery,
     IndexParams, MetricType, QuantizeType, VectorQuery, VectorSchema,
 };
@@ -34,18 +34,18 @@ mod integration_tests {
     use super::*;
     use tempfile::TempDir;
 
-    fn tempdir() -> zvec::Result<TempDir> {
-        tempfile::tempdir().map_err(|e| zvec::Error::InternalError(e.to_string()))
+    fn tempdir() -> zvec_bindings::Result<TempDir> {
+        tempfile::tempdir().map_err(|e| zvec_bindings::Error::InternalError(e.to_string()))
     }
 
-    fn create_test_collection(path: &std::path::Path) -> zvec::Result<Collection> {
+    fn create_test_collection(path: &std::path::Path) -> zvec_bindings::Result<Collection> {
         let mut schema = CollectionSchema::new("test");
         schema.add_field(VectorSchema::fp32("embedding", 4).into())?;
         create_and_open(path, schema)
     }
 
     #[test]
-    fn test_collection_create_and_insert() -> zvec::Result<()> {
+    fn test_collection_create_and_insert() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -62,7 +62,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_fetch() -> zvec::Result<()> {
+    fn test_collection_fetch() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_test_collection(&path)?;
@@ -79,7 +79,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_query() -> zvec::Result<()> {
+    fn test_collection_query() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -113,7 +113,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_delete() -> zvec::Result<()> {
+    fn test_collection_delete() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -141,7 +141,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_upsert() -> zvec::Result<()> {
+    fn test_collection_upsert() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_test_collection(&path)?;
@@ -160,7 +160,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_update() -> zvec::Result<()> {
+    fn test_collection_update() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_test_collection(&path)?;
@@ -178,7 +178,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_scalar_fields() -> zvec::Result<()> {
+    fn test_collection_scalar_fields() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -203,7 +203,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_multiple_vectors() -> zvec::Result<()> {
+    fn test_collection_multiple_vectors() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -227,7 +227,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_create_hnsw_index() -> zvec::Result<()> {
+    fn test_collection_create_hnsw_index() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_test_collection(&path)?;
@@ -239,7 +239,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_create_flat_index() -> zvec::Result<()> {
+    fn test_collection_create_flat_index() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
         let collection = create_test_collection(&path)?;
@@ -251,7 +251,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_sparse_vector() -> zvec::Result<()> {
+    fn test_sparse_vector() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -273,7 +273,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_group_by_query() -> zvec::Result<()> {
+    fn test_collection_group_by_query() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 
@@ -309,7 +309,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_collection_delete_by_filter() -> zvec::Result<()> {
+    fn test_collection_delete_by_filter() -> zvec_bindings::Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("test_db");
 

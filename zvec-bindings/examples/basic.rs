@@ -1,6 +1,6 @@
-use zvec::{create_and_open, CollectionSchema, Doc, VectorQuery, VectorSchema};
+use zvec_bindings::{create_and_open, CollectionSchema, Doc, VectorQuery, VectorSchema};
 
-fn main() -> zvec::Result<()> {
+fn main() -> zvec_bindings::Result<()> {
     let path = "./zvec_example_db";
 
     let mut schema = CollectionSchema::new("example");
