@@ -1,0 +1,23 @@
+[package]
+name = "zvec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Idiomatic Rust bindings for zvec vector database"
+keywords = ["vector", "database", "search", "embedding", "similarity"]
+categories = ["database", "science"]
+readme = "README.md"
+
+[dependencies]
+zvec-sys = { path = "../zvec-sys" }
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+proptest = "1.4"
+
+[features]
+default = []
+static = ["zvec-sys/static"]
+sync = []

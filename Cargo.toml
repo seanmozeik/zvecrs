@@ -1,0 +1,16 @@
+[workspace]
+members = ["zvec-sys", "zvec"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/alibaba/zvec"
+description = "Rust bindings for zvec vector database"
+keywords = ["vector", "database", "search", "embedding", "similarity"]
+categories = ["database", "science"]
+
+[workspace.dependencies]
+zvec-sys = { path = "zvec-sys" }
+thiserror = "1.0"

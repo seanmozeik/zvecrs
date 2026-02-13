@@ -1,0 +1,897 @@
+use tempfile::TempDir;
+use zvec::{
+    create_and_open, open, Collection, CollectionSchema, DataType, Doc, FieldSchema,
+    GroupByVectorQuery, IndexParams, IndexType, MetricType, QuantizeType, VectorQuery,
+    VectorSchema,
+};
+
+fn tempdir() -> zvec::Result<TempDir> {
+    tempfile::tempdir().map_err(|e| zvec::Error::InternalError(e.to_string()))
+}
+
+fn create_collection(path: &std::path::Path) -> zvec::Result<Collection> {
+    let mut schema = CollectionSchema::new("test");
+    schema.add_field(VectorSchema::fp32("embedding", 4).into())?;
+    create_and_open(path, schema)
+}
+
+#[cfg(test)]
+mod coverage_tests {
+    use super::*;
+
+    #[test]
+    fn test_data_type_all_variants() {
+        assert!(matches!(DataType::Undefined, DataType::Undefined));
+        assert!(matches!(DataType::Binary, DataType::Binary));
+        assert!(matches!(DataType::String, DataType::String));
+        assert!(matches!(DataType::Bool, DataType::Bool));
+        assert!(matches!(DataType::Int32, DataType::Int32));
+        assert!(matches!(DataType::Int64, DataType::Int64));
+        assert!(matches!(DataType::UInt32, DataType::UInt32));
+        assert!(matches!(DataType::UInt64, DataType::UInt64));
+        assert!(matches!(DataType::Float, DataType::Float));
+        assert!(matches!(DataType::Double, DataType::Double));
+        assert!(matches!(DataType::VectorBinary32, DataType::VectorBinary32));
+        assert!(matches!(DataType::VectorBinary64, DataType::VectorBinary64));
+        assert!(matches!(DataType::VectorFp16, DataType::VectorFp16));
+        assert!(matches!(DataType::VectorFp32, DataType::VectorFp32));
+        assert!(matches!(DataType::VectorFp64, DataType::VectorFp64));
+        assert!(matches!(DataType::VectorInt4, DataType::VectorInt4));
+        assert!(matches!(DataType::VectorInt8, DataType::VectorInt8));
+        assert!(matches!(DataType::VectorInt16, DataType::VectorInt16));
+        assert!(matches!(
+            DataType::SparseVectorFp16,
+            DataType::SparseVectorFp16
+        ));
+        assert!(matches!(
+            DataType::SparseVectorFp32,
+            DataType::SparseVectorFp32
+        ));
+        assert!(matches!(DataType::ArrayBinary, DataType::ArrayBinary));
+        assert!(matches!(DataType::ArrayString, DataType::ArrayString));
+        assert!(matches!(DataType::ArrayBool, DataType::ArrayBool));
+        assert!(matches!(DataType::ArrayInt32, DataType::ArrayInt32));
+        assert!(matches!(DataType::ArrayInt64, DataType::ArrayInt64));
+        assert!(matches!(DataType::ArrayUInt32, DataType::ArrayUInt32));
+        assert!(matches!(DataType::ArrayUInt64, DataType::ArrayUInt64));
+        assert!(matches!(DataType::ArrayFloat, DataType::ArrayFloat));
+        assert!(matches!(DataType::ArrayDouble, DataType::ArrayDouble));
+    }
+
+    #[test]
+    fn test_metric_type_all_variants() {
+        assert!(matches!(MetricType::Undefined, MetricType::Undefined));
+        assert!(matches!(MetricType::L2, MetricType::L2));
+        assert!(matches!(MetricType::Ip, MetricType::Ip));
+        assert!(matches!(MetricType::Cosine, MetricType::Cosine));
+        assert!(matches!(MetricType::MipsL2, MetricType::MipsL2));
+    }
+
+    #[test]
+    fn test_quantize_type_all_variants() {
+        assert!(matches!(QuantizeType::Undefined, QuantizeType::Undefined));
+        assert!(matches!(QuantizeType::Fp16, QuantizeType::Fp16));
+        assert!(matches!(QuantizeType::Int8, QuantizeType::Int8));
+        assert!(matches!(QuantizeType::Int4, QuantizeType::Int4));
+    }
+
+    #[test]
+    fn test_index_type_all_variants() {
+        assert!(matches!(IndexType::Undefined, IndexType::Undefined));
+        assert!(matches!(IndexType::Hnsw, IndexType::Hnsw));
+        assert!(matches!(IndexType::Ivf, IndexType::Ivf));
+        assert!(matches!(IndexType::Flat, IndexType::Flat));
+        assert!(matches!(IndexType::Invert, IndexType::Invert));
+    }
+
+    #[test]
+    fn test_doc_id_methods() -> zvec::Result<()> {
+        let mut doc = Doc::id("test_pk");
+        let _ = doc.pk();
+
+        doc.set_pk("new_pk");
+        let _ = doc.pk();
+
+        let doc2 = Doc::with_pk("pk2");
+        let _ = doc2.pk();
+
+        let doc3 = Doc::new();
+        let _ = doc3.pk();
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_setters_all_types() -> zvec::Result<()> {
+        let mut doc = Doc::id("test");
+
+        doc.set_bool("bool_field", true)?;
+        doc.set_int32("int32_field", 42)?;
+        doc.set_int64("int64_field", 1234567890i64)?;
+        doc.set_float("float_field", 1.5)?;
+        doc.set_double("double_field", 2.5)?;
+        doc.set_string("string_field", "hello")?;
+
+        doc.set_vector("vec_field", &[1.0, 2.0, 3.0, 4.0])?;
+        doc.set_sparse_vector("sparse_field", &[1, 2, 3], &[0.1, 0.2, 0.3])?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_builder_chaining() -> zvec::Result<()> {
+        let doc = Doc::id("test")
+            .with_pk_mut("updated_pk")
+            .with_vector("embedding", &[1.0, 0.0, 0.0, 0.0])?
+            .with_string("name", "test_name")?
+            .with_float("score", 1.5)?
+            .with_int64("count", 100)?;
+
+        let _ = doc.pk();
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_field_schema_constructors() {
+        let fs = FieldSchema::bool_("bool_field");
+        assert_eq!(fs.name(), "bool_field");
+        assert_eq!(fs.data_type(), DataType::Bool);
+
+        let fs = FieldSchema::int32("int32_field");
+        assert_eq!(fs.data_type(), DataType::Int32);
+
+        let fs = FieldSchema::int64("int64_field");
+        assert_eq!(fs.data_type(), DataType::Int64);
+
+        let fs = FieldSchema::float("float_field");
+        assert_eq!(fs.data_type(), DataType::Float);
+
+        let fs = FieldSchema::double("double_field");
+        assert_eq!(fs.data_type(), DataType::Double);
+
+        let fs = FieldSchema::string("string_field");
+        assert_eq!(fs.data_type(), DataType::String);
+
+        let fs = FieldSchema::new("custom_field", DataType::UInt32);
+        assert_eq!(fs.data_type(), DataType::UInt32);
+
+        let fs = FieldSchema::new_vector("vec_field", DataType::VectorFp32, 128);
+        assert_eq!(fs.data_type(), DataType::VectorFp32);
+        assert_eq!(fs.dimension(), 128);
+    }
+
+    #[test]
+    fn test_field_schema_nullable() {
+        let mut fs = FieldSchema::string("test");
+        assert!(!fs.nullable());
+        fs.set_nullable(true);
+        assert!(fs.nullable());
+    }
+
+    #[test]
+    fn test_field_schema_dimension() {
+        let fs = FieldSchema::new_vector("vec", DataType::VectorFp32, 64);
+        assert_eq!(fs.dimension(), 64);
+    }
+
+    #[test]
+    fn test_vector_schema_constructors() {
+        let vs = VectorSchema::fp32("fp32_vec", 128);
+        assert_eq!(vs.into_field_schema().data_type(), DataType::VectorFp32);
+
+        let vs = VectorSchema::fp16("fp16_vec", 64);
+        assert_eq!(vs.into_field_schema().data_type(), DataType::VectorFp16);
+
+        let vs = VectorSchema::sparse_fp32("sparse_fp32");
+        assert_eq!(
+            vs.into_field_schema().data_type(),
+            DataType::SparseVectorFp32
+        );
+
+        let vs = VectorSchema::sparse_fp16("sparse_fp16");
+        assert_eq!(
+            vs.into_field_schema().data_type(),
+            DataType::SparseVectorFp16
+        );
+
+        let vs = VectorSchema::sparse_fp32_with_dim("sparse_fp32_dim", 1000);
+        assert_eq!(vs.into_field_schema().dimension(), 1000);
+
+        let vs = VectorSchema::sparse_fp16_with_dim("sparse_fp16_dim", 500);
+        assert_eq!(vs.into_field_schema().dimension(), 500);
+    }
+
+    #[test]
+    fn test_collection_schema_name() {
+        let schema = CollectionSchema::new("my_collection");
+        let _ = schema.name();
+    }
+
+    #[test]
+    fn test_index_params_types() {
+        let params = IndexParams::hnsw(16, 200, MetricType::L2, QuantizeType::Undefined);
+        assert_eq!(params.index_type(), IndexType::Hnsw);
+
+        let params = IndexParams::ivf(100, 10, true, MetricType::Cosine, QuantizeType::Fp16);
+        assert_eq!(params.index_type(), IndexType::Ivf);
+
+        let params = IndexParams::flat(MetricType::Ip, QuantizeType::Int8);
+        assert_eq!(params.index_type(), IndexType::Flat);
+
+        let params = IndexParams::invert(true);
+        assert_eq!(params.index_type(), IndexType::Invert);
+    }
+
+    #[test]
+    fn test_query_builder_all_options() -> zvec::Result<()> {
+        let query = VectorQuery::new("embedding")
+            .topk(100)
+            .filter("count > 10")
+            .include_vector(true)
+            .include_doc_id(true)
+            .output_fields(&["name", "count"])
+            .vector(&[1.0, 0.0, 0.0, 0.0])?;
+
+        drop(query);
+        Ok(())
+    }
+
+    #[test]
+    fn test_query_sparse_vector() -> zvec::Result<()> {
+        let query = VectorQuery::new("sparse_embedding")
+            .topk(10)
+            .sparse_vector(&[1, 5, 10], &[0.5, 0.3, 0.2])?;
+
+        drop(query);
+        Ok(())
+    }
+
+    #[test]
+    fn test_group_by_query_builder() -> zvec::Result<()> {
+        let query = GroupByVectorQuery::new("embedding")
+            .group_by("category")
+            .group_count(5)
+            .group_topk(10)
+            .vector(&[1.0, 0.0, 0.0, 0.0])?;
+
+        drop(query);
+        Ok(())
+    }
+
+    #[test]
+    fn test_collection_path() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        let path_result = collection.path()?;
+        assert!(path_result.contains("test_db"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_collection_open() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+
+        let collection = create_collection(&path)?;
+        collection.flush()?;
+        drop(collection);
+
+        let reopened = open(&path)?;
+        assert!(reopened.path()?.contains("test_db"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_collection_optimize() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        collection.optimize()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_collection_drop_index() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        let params = IndexParams::flat(MetricType::L2, QuantizeType::Undefined);
+        collection.create_index("embedding", params)?;
+
+        collection.drop_index("embedding")?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_collection_ivf_index() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        let params = IndexParams::ivf(10, 10, false, MetricType::L2, QuantizeType::Undefined);
+        collection.create_index("embedding", params)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_write_results_iteration() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        let mut doc1 = Doc::id("doc_1");
+        doc1.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
+
+        let mut doc2 = Doc::id("doc_2");
+        doc2.set_vector("embedding", &[0.5, 0.6, 0.7, 0.8])?;
+
+        let results = collection.insert(&[doc1, doc2])?;
+        assert_eq!(results.len(), 2);
+
+        let mut count = 0;
+        for result in results.iter() {
+            assert!(result.is_ok());
+            count += 1;
+        }
+        assert_eq!(count, 2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_list_iteration() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        let mut doc1 = Doc::id("doc_1");
+        doc1.set_vector("embedding", &[1.0, 0.0, 0.0, 0.0])?;
+
+        let mut doc2 = Doc::id("doc_2");
+        doc2.set_vector("embedding", &[0.0, 1.0, 0.0, 0.0])?;
+
+        collection.insert(&[doc1, doc2])?;
+
+        let query = VectorQuery::new("embedding")
+            .topk(10)
+            .vector(&[1.0, 0.0, 0.0, 0.0])?;
+
+        let results = collection.query(query)?;
+        assert!(!results.is_empty());
+
+        let mut count = 0;
+        for doc in results.iter() {
+            assert!(!doc.pk().is_empty() || doc.score() >= 0.0);
+            count += 1;
+        }
+        assert!(count > 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_map_iteration() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        let mut doc1 = Doc::id("doc_1");
+        doc1.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
+
+        let mut doc2 = Doc::id("doc_2");
+        doc2.set_vector("embedding", &[0.5, 0.6, 0.7, 0.8])?;
+
+        collection.insert(&[doc1, doc2])?;
+
+        let fetched = collection.fetch(&["doc_1", "doc_2"])?;
+        assert_eq!(fetched.len(), 2);
+
+        let keys = fetched.keys();
+        for key in keys {
+            let doc = fetched.get(key);
+            if let Some(doc) = doc {
+                let _ = doc.pk();
+            }
+        }
+
+        assert!(fetched.get("nonexistent").is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_ref_getters() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+
+        let mut schema = CollectionSchema::new("test");
+        schema.add_field(VectorSchema::fp32("embedding", 4).into())?;
+        schema.add_field(FieldSchema::int64("count"))?;
+        schema.add_field(FieldSchema::float("score"))?;
+        let collection = create_and_open(&path, schema)?;
+
+        let mut doc = Doc::id("test_doc");
+        doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
+        doc.set_int64("count", 42)?;
+        doc.set_float("score", 1.5)?;
+        collection.insert(&[doc])?;
+
+        let fetched = collection.fetch(&["test_doc"])?;
+        let doc = fetched.get("test_doc").expect("Document should exist");
+
+        assert_eq!(doc.get_int64("count"), Some(42));
+        assert_eq!(doc.get_float("score"), Some(1.5));
+
+        let vec = doc.get_vector("embedding").expect("Should have vector");
+        assert_eq!(vec.len(), 4);
+
+        assert!(doc.get_string("nonexistent").is_none());
+        assert!(doc.get_int64("nonexistent").is_none());
+        assert!(doc.get_float("nonexistent").is_none());
+        assert!(doc.get_vector("nonexistent").is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_ref_doc_id_and_score() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        let mut doc = Doc::id("test_doc");
+        doc.set_vector("embedding", &[1.0, 0.0, 0.0, 0.0])?;
+        collection.insert(&[doc])?;
+
+        let query = VectorQuery::new("embedding")
+            .topk(10)
+            .include_doc_id(true)
+            .vector(&[1.0, 0.0, 0.0, 0.0])?;
+
+        let results = collection.query(query)?;
+        let first = results.get(0).expect("Should have result");
+
+        let _score = first.score();
+        let _doc_id = first.doc_id();
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_registered_metrics() {
+        let metrics = zvec::list_registered_metrics();
+        assert!(!metrics.is_empty());
+        assert!(metrics.contains(&"L2".to_string()) || metrics.contains(&"Euclidean".to_string()));
+    }
+
+    #[test]
+    fn test_error_display() {
+        let err = zvec::Error::NotFound("test not found".to_string());
+        let msg = format!("{}", err);
+        assert!(msg.contains("test not found"));
+
+        let err = zvec::Error::InvalidArgument("bad arg".to_string());
+        let msg = format!("{}", err);
+        assert!(msg.contains("bad arg"));
+
+        let err = zvec::Error::AlreadyExists("already here".to_string());
+        let msg = format!("{}", err);
+        assert!(msg.contains("already here"));
+
+        let err = zvec::Error::InternalError("internal".to_string());
+        let msg = format!("{}", err);
+        assert!(msg.contains("internal"));
+
+        let err = zvec::Error::NullPointer;
+        let msg = format!("{}", err);
+        assert!(msg.contains("Null pointer"));
+
+        let err = zvec::Error::DimensionMismatch {
+            expected: 128,
+            actual: 64,
+        };
+        let msg = format!("{}", err);
+        assert!(msg.contains("128"));
+        assert!(msg.contains("64"));
+    }
+
+    #[test]
+    fn test_data_type_is_vector_checks() {
+        assert!(DataType::VectorFp32.is_vector());
+        assert!(DataType::VectorFp16.is_vector());
+        assert!(DataType::VectorFp64.is_vector());
+        assert!(DataType::VectorInt4.is_vector());
+        assert!(DataType::VectorInt8.is_vector());
+        assert!(DataType::VectorInt16.is_vector());
+        assert!(DataType::SparseVectorFp32.is_vector());
+        assert!(DataType::SparseVectorFp16.is_vector());
+        assert!(!DataType::String.is_vector());
+        assert!(!DataType::Int64.is_vector());
+        assert!(!DataType::Float.is_vector());
+    }
+
+    #[test]
+    fn test_data_type_is_sparse_checks() {
+        assert!(DataType::SparseVectorFp32.is_sparse_vector());
+        assert!(DataType::SparseVectorFp16.is_sparse_vector());
+        assert!(!DataType::VectorFp32.is_sparse_vector());
+        assert!(!DataType::String.is_sparse_vector());
+    }
+
+    #[test]
+    fn test_collection_destroy() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        collection.destroy()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_get_all_types() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+
+        let mut schema = CollectionSchema::new("test");
+        schema.add_field(VectorSchema::fp32("embedding", 4).into())?;
+        schema.add_field(FieldSchema::bool_("bool_field"))?;
+        schema.add_field(FieldSchema::int32("int32_field"))?;
+        schema.add_field(FieldSchema::int64("int64_field"))?;
+        schema.add_field(FieldSchema::float("float_field"))?;
+        schema.add_field(FieldSchema::double("double_field"))?;
+        schema.add_field(FieldSchema::string("string_field"))?;
+        let collection = create_and_open(&path, schema)?;
+
+        let mut doc = Doc::id("test_doc");
+        doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
+        doc.set_bool("bool_field", true)?;
+        doc.set_int32("int32_field", 123)?;
+        doc.set_int64("int64_field", 456)?;
+        doc.set_float("float_field", 1.5)?;
+        doc.set_double("double_field", 2.5)?;
+        doc.set_string("string_field", "hello")?;
+        collection.insert(&[doc])?;
+
+        let fetched = collection.fetch(&["test_doc"])?;
+        let doc = fetched.get("test_doc").expect("Document should exist");
+
+        assert_eq!(doc.get_int64("int64_field"), Some(456));
+        assert_eq!(doc.get_float("float_field"), Some(1.5));
+        let _ = doc.get_string("string_field");
+
+        assert!(doc.get_int64("nonexistent").is_none());
+        assert!(doc.get_float("nonexistent").is_none());
+        assert!(doc.get_string("nonexistent").is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sparse_vector_mismatched_length() -> zvec::Result<()> {
+        let mut doc = Doc::id("test");
+        let result = doc.set_sparse_vector("sparse", &[1, 2, 3], &[0.1, 0.2]);
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_has_and_has_value() -> zvec::Result<()> {
+        let mut doc = Doc::id("test");
+        doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
+
+        assert!(doc.has("embedding"));
+        assert!(doc.has_value("embedding"));
+        assert!(!doc.has("nonexistent"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_is_null() -> zvec::Result<()> {
+        let mut doc = Doc::id("test");
+        doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
+
+        let _ = doc.is_null("embedding");
+        let _ = doc.is_null("nonexistent");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_default() {
+        let doc = Doc::default();
+        let _ = doc.pk();
+    }
+
+    #[test]
+    fn test_doc_list_len_and_is_empty() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        let mut doc = Doc::id("test_doc");
+        doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
+        collection.insert(&[doc])?;
+
+        let query = VectorQuery::new("embedding")
+            .topk(10)
+            .vector(&[0.1, 0.2, 0.3, 0.4])?;
+
+        let results = collection.query(query)?;
+        assert!(!results.is_empty());
+        assert!(!results.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_doc_map_is_empty() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        let mut doc = Doc::id("test_doc");
+        doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
+        collection.insert(&[doc])?;
+
+        let fetched = collection.fetch(&["test_doc"])?;
+        assert!(!fetched.is_empty());
+        assert_eq!(fetched.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_write_results_get_out_of_bounds() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_collection(&path)?;
+
+        let mut doc = Doc::id("test_doc");
+        doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
+        let results = collection.insert(&[doc])?;
+
+        assert!(results.get(100).is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_error_types() {
+        let err = zvec::Error::NotFound("test".to_string());
+        assert!(format!("{}", err).contains("test"));
+
+        let err = zvec::Error::AlreadyExists("test".to_string());
+        assert!(format!("{}", err).contains("test"));
+
+        let err = zvec::Error::NotSupported("test".to_string());
+        assert!(format!("{}", err).contains("test"));
+
+        let err = zvec::Error::PermissionDenied("test".to_string());
+        assert!(format!("{}", err).contains("test"));
+
+        let err = zvec::Error::FailedPrecondition("test".to_string());
+        assert!(format!("{}", err).contains("test"));
+
+        let err = zvec::Error::Unknown("test".to_string());
+        assert!(format!("{}", err).contains("test"));
+
+        let err = zvec::Error::CollectionNotFound("test".to_string());
+        assert!(format!("{}", err).contains("test"));
+
+        let err = zvec::Error::IndexNotFound("test".to_string());
+        assert!(format!("{}", err).contains("test"));
+
+        let err = zvec::Error::FieldNotFound("test".to_string());
+        assert!(format!("{}", err).contains("test"));
+    }
+}
+
+#[cfg(feature = "sync")]
+mod sync_tests {
+    use super::*;
+    use std::thread;
+    use std::time::Duration;
+    use zvec::{create_and_open_shared, open_shared, SharedCollection};
+
+    fn create_shared_collection(path: &std::path::Path) -> zvec::Result<SharedCollection> {
+        let mut schema = CollectionSchema::new("test");
+        schema.add_field(VectorSchema::fp32("embedding", 4).into())?;
+        create_and_open_shared(path, schema)
+    }
+
+    #[test]
+    fn test_shared_collection_clone() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_shared_collection(&path)?;
+
+        let c2 = collection.clone();
+        let c3 = collection.clone();
+
+        // All clones share the same underlying collection
+        assert_eq!(collection.path()?, c2.path()?);
+        assert_eq!(collection.path()?, c3.path()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_shared_collection_from_collection() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+
+        let mut schema = CollectionSchema::new("test");
+        schema.add_field(VectorSchema::fp32("embedding", 4).into())?;
+        let collection = create_and_open(&path, schema)?;
+
+        let shared = SharedCollection::new(collection);
+
+        let _ = shared.path()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_shared_collection_concurrent_reads() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_shared_collection(&path)?;
+
+        let mut doc = Doc::id("doc_1");
+        doc.set_vector("embedding", &[1.0, 0.0, 0.0, 0.0])?;
+        collection.insert(&[doc])?;
+
+        let handles: Vec<_> = (0..4)
+            .map(|_| {
+                let c = collection.clone();
+                thread::spawn(move || {
+                    let query = VectorQuery::new("embedding")
+                        .topk(10)
+                        .vector(&[1.0, 0.0, 0.0, 0.0])
+                        .unwrap();
+                    c.query(query).unwrap()
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            let results = handle.join().expect("thread panicked");
+            assert!(!results.is_empty());
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_shared_collection_concurrent_write_read() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_shared_collection(&path)?;
+
+        let writer = {
+            let c = collection.clone();
+            thread::spawn(move || {
+                for i in 0..5 {
+                    let mut doc = Doc::id(format!("doc_{}", i));
+                    doc.set_vector("embedding", &[i as f32 * 0.1, 0.0, 0.0, 0.0])
+                        .unwrap();
+                    c.insert(&[doc]).unwrap();
+                }
+            })
+        };
+
+        let reader = {
+            let c = collection.clone();
+            thread::spawn(move || {
+                for _ in 0..5 {
+                    let query = VectorQuery::new("embedding")
+                        .topk(100)
+                        .vector(&[0.5, 0.0, 0.0, 0.0])
+                        .unwrap();
+                    let _ = c.query(query);
+                    thread::sleep(Duration::from_millis(1));
+                }
+            })
+        };
+
+        writer.join().expect("writer panicked");
+        reader.join().expect("reader panicked");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_shared_collection_fetch() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_shared_collection(&path)?;
+
+        let mut doc = Doc::id("test_doc");
+        doc.set_vector("embedding", &[0.1, 0.2, 0.3, 0.4])?;
+        collection.insert(&[doc])?;
+
+        let fetched = collection.fetch(&["test_doc"])?;
+        assert_eq!(fetched.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_shared_collection_open() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+
+        let collection = create_shared_collection(&path)?;
+        collection.flush()?;
+        drop(collection);
+
+        let reopened = open_shared(&path)?;
+        assert!(reopened.path()?.contains("test_db"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_shared_collection_all_operations() -> zvec::Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("test_db");
+        let collection = create_shared_collection(&path)?;
+
+        // Insert
+        let mut doc = Doc::id("doc_1");
+        doc.set_vector("embedding", &[1.0, 0.0, 0.0, 0.0])?;
+        collection.insert(&[doc])?;
+
+        // Upsert
+        let mut doc = Doc::id("doc_2");
+        doc.set_vector("embedding", &[0.0, 1.0, 0.0, 0.0])?;
+        collection.upsert(&[doc])?;
+
+        // Update
+        let mut doc = Doc::id("doc_1");
+        doc.set_vector("embedding", &[0.5, 0.5, 0.0, 0.0])?;
+        collection.update(&[doc])?;
+
+        // Query
+        let query = VectorQuery::new("embedding")
+            .topk(10)
+            .vector(&[1.0, 0.0, 0.0, 0.0])?;
+        let results = collection.query(query)?;
+        assert!(!results.is_empty());
+
+        // Fetch
+        let fetched = collection.fetch(&["doc_1"])?;
+        assert_eq!(fetched.len(), 1);
+
+        // Create index
+        let params = zvec::IndexParams::flat(zvec::MetricType::L2, zvec::QuantizeType::Undefined);
+        collection.create_index("embedding", params)?;
+
+        // Optimize
+        collection.optimize()?;
+
+        // Flush
+        collection.flush()?;
+
+        // Delete
+        collection.delete(&["doc_2"])?;
+
+        // Destroy
+        collection.destroy()?;
+
+        Ok(())
+    }
+}

@@ -1,0 +1,68 @@
+# Rust
+/target/
+/Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# zvec C++ build artifacts
+vendor/zvec/build/
+vendor/zvec/lib/
+vendor/zvec/bin/
+vendor/zvec/CMakeCache.txt
+vendor/zvec/CMakeFiles/
+vendor/zvec/CTestTestfile.cmake
+vendor/zvec/cmake_install.cmake
+vendor/zvec/Makefile
+vendor/zvec/compile_commands.json
+vendor/zvec/CPackConfig.cmake
+vendor/zvec/CPackSourceConfig.cmake
+vendor/zvec/*.pc
+vendor/zvec/build_version.cc
+
+# zvec thirdparty build artifacts
+vendor/zvec/thirdparty/*/CMakeFiles/
+vendor/zvec/thirdparty/*/cmake_install.cmake
+vendor/zvec/thirdparty/*/CTestTestfile.cmake
+vendor/zvec/thirdparty/*/Makefile
+vendor/zvec/thirdparty/*/build/
+vendor/zvec/thirdparty/*/*.a
+vendor/zvec/thirdparty/*/*.so
+vendor/zvec/thirdparty/*/*.dylib
+
+# C wrapper build artifacts
+zvec-c-wrapper/build/
+zvec-c-wrapper/CMakeCache.txt
+zvec-c-wrapper/CMakeFiles/
+zvec-c-wrapper/CTestTestfile.cmake
+zvec-c-wrapper/cmake_install.cmake
+zvec-c-wrapper/Makefile
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test databases
+zvec_example_db/
+test_db/
+*.zvec/
+zvec_*_db/
+
+# Coverage
+target/llvm-cov/
+*.profraw
+*.profdata
+lcov.info
+
+# Fuzzing
+fuzz/artifacts/
+fuzz/corpus/
+
+# Benchmarks
+target/criterion/
+
+# OS
+.DS_Store
+Thumbs.db
