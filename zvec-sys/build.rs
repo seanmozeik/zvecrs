@@ -49,8 +49,13 @@ fn main() {
     println!("cargo:rerun-if-env-changed=ZVEC_BUILD_PARALLEL");
     println!("cargo:rerun-if-env-changed=ZVEC_CPU_ARCH");
     println!("cargo:rerun-if-env-changed=ZVEC_OPENMP");
+    println!("cargo:rerun-if-changed=zvec-c-wrapper/CMakeLists.txt");
+    println!("cargo:rerun-if-changed=zvec-c-wrapper/include/zvec_c.h");
+    println!("cargo:rerun-if-changed=zvec-c-wrapper/include/zvec_c_internal.h");
+    println!("cargo:rerun-if-changed=zvec-c-wrapper/src");
 
     let zvec_src = ensure_zvec_source(workspace_dir);
+    patch_antlr_cmake(&zvec_src);
     let zvec_build = zvec_src.join("build");
     let zvec_lib = zvec_build.join("lib");
 
@@ -70,19 +75,14 @@ fn main() {
         println!("cargo:warning=zvec C++ library already built");
     }
 
-    let wrapper_built = wrapper_build.join("libzvec_c_wrapper.a");
-    if !wrapper_built.exists() {
-        println!("cargo:warning=Building C wrapper...");
-        build_c_wrapper(
-            &wrapper_dir,
-            &wrapper_build,
-            &zvec_src,
-            &build_type,
-            parallel_jobs,
-        );
-    } else {
-        println!("cargo:warning=C wrapper already built");
-    }
+    println!("cargo:warning=Building C wrapper...");
+    build_c_wrapper(
+        &wrapper_dir,
+        &wrapper_build,
+        &zvec_src,
+        &build_type,
+        parallel_jobs,
+    );
 
     generate_bindings(&wrapper_dir);
 
@@ -96,6 +96,7 @@ fn build_zvec(_src: &Path, build: &Path, build_type: &str, parallel_jobs: usize)
         format!("-DCMAKE_BUILD_TYPE={}", build_type),
         "-DBUILD_PYTHON_BINDINGS=OFF".to_string(),
         "-DBUILD_TOOLS=OFF".to_string(),
+        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5".to_string(),
     ];
 
     if let Ok(arch) = env::var("ZVEC_CPU_ARCH") {
@@ -288,10 +289,15 @@ fn link_libraries(zvec_lib: &Path, wrapper_build: &Path) {
     }
 
     // System libraries
-    println!("cargo:rustc-link-lib=stdc++");
-    println!("cargo:rustc-link-lib=pthread");
-    println!("cargo:rustc-link-lib=dl");
-    println!("cargo:rustc-link-lib=m");
+    if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-lib=c++");
+        println!("cargo:rustc-link-lib=m");
+    } else {
+        println!("cargo:rustc-link-lib=stdc++");
+        println!("cargo:rustc-link-lib=pthread");
+        println!("cargo:rustc-link-lib=dl");
+        println!("cargo:rustc-link-lib=m");
+    }
 }
 
 fn run(cmd: &mut Command, context: &str) {
@@ -308,4 +314,25 @@ fn num_cpus() -> usize {
     std::thread::available_parallelism()
         .map(|p| p.get())
         .unwrap_or(4)
+}
+
+fn patch_antlr_cmake(zvec_src: &Path) {
+    let cmake_path = zvec_src
+        .join("thirdparty/antlr/antlr4/runtime/Cpp/CMakeLists.txt");
+    if !cmake_path.exists() {
+        return;
+    }
+    let content = std::fs::read_to_string(&cmake_path)
+        .expect("Failed to read ANTLR CMakeLists.txt");
+    // Modern CMake (3.30+) rejects deprecated OLD policy settings.
+    let patched = content
+        .replace("CMAKE_POLICY(SET CMP0054 OLD)", "CMAKE_POLICY(SET CMP0054 NEW)")
+        .replace("CMAKE_POLICY(SET CMP0045 OLD)", "CMAKE_POLICY(SET CMP0045 NEW)")
+        .replace("CMAKE_POLICY(SET CMP0042 OLD)", "CMAKE_POLICY(SET CMP0042 NEW)")
+        .replace("CMAKE_POLICY(SET CMP0059 OLD)", "CMAKE_POLICY(SET CMP0059 NEW)");
+    if patched != content {
+        std::fs::write(&cmake_path, patched)
+            .expect("Failed to patch ANTLR CMakeLists.txt");
+        println!("cargo:warning=Patched ANTLR CMakeLists.txt for modern CMake policy compatibility");
+    }
 }

@@ -58,6 +58,7 @@ struct zvec_field_schema {
 struct zvec_doc {
     zvec::Doc::Ptr ptr;
     bool owned;
+    mutable std::string string_cache;
 };
 
 struct zvec_vector_query {

@@ -40,7 +40,8 @@ void zvec_doc_set_pk(zvec_doc_t* doc, const char* pk) {
 
 const char* zvec_doc_pk(const zvec_doc_t* doc) {
     if (doc && doc->ptr) {
-        return doc->ptr->pk().c_str();
+        doc->string_cache = doc->ptr->pk();
+        return doc->string_cache.c_str();
     }
     return nullptr;
 }
@@ -325,7 +326,8 @@ bool zvec_doc_get_string(const zvec_doc_t* doc, const char* field, const char** 
     if (doc && doc->ptr && field && out_value) {
         auto result = doc->ptr->get<std::string>(std::string(field));
         if (result.has_value()) {
-            *out_value = result.value().c_str();
+            doc->string_cache = result.value();
+            *out_value = doc->string_cache.c_str();
             return true;
         }
     }
