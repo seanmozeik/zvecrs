@@ -1,0 +1,71 @@
+# Builds zvec C++ libraries and generates bindings.rs for the target platform.
+# Output: /prebuilt/ containing all .a files + bindings.rs
+#
+# Build with:
+#   docker buildx build --platform linux/amd64 -f scripts/Dockerfile.artifacts .
+#   docker buildx build --platform linux/arm64 -f scripts/Dockerfile.artifacts .
+
+FROM bitnami/minideb:bookworm AS builder
+
+RUN install_packages \
+    build-essential \
+    cmake \
+    git \
+    curl \
+    clang \
+    libclang-dev \
+    ca-certificates \
+    pkg-config \
+    ninja-build \
+    python3
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+ENV PATH="/root/.cargo/bin:$PATH"
+
+WORKDIR /zvecrs
+COPY . .
+
+# Build the bindings generator for the target platform
+RUN cargo build -p gen-bindings --release
+
+# Clone zvec
+RUN git clone --depth 1 --branch v0.2.0 --recursive \
+    https://github.com/alibaba/zvec.git /build/zvec
+
+# Patch ANTLR CMake for modern CMake policy compatibility
+RUN sed -i \
+    -e 's/CMAKE_POLICY(SET CMP0054 OLD)/CMAKE_POLICY(SET CMP0054 NEW)/g' \
+    -e 's/CMAKE_POLICY(SET CMP0045 OLD)/CMAKE_POLICY(SET CMP0045 NEW)/g' \
+    -e 's/CMAKE_POLICY(SET CMP0042 OLD)/CMAKE_POLICY(SET CMP0042 NEW)/g' \
+    -e 's/CMAKE_POLICY(SET CMP0059 OLD)/CMAKE_POLICY(SET CMP0059 NEW)/g' \
+    /build/zvec/thirdparty/antlr/antlr4/runtime/Cpp/CMakeLists.txt
+
+# Build zvec C++ library
+RUN cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_PYTHON_BINDINGS=OFF \
+    -DBUILD_TOOLS=OFF \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -S /build/zvec \
+    -B /build/zvec-build && \
+    make -C /build/zvec-build -j$(nproc)
+
+# Build C wrapper (only needs zvec headers, not the built libs)
+RUN cmake \
+    -DZVEC_SRC_DIR=/build/zvec \
+    -DCMAKE_BUILD_TYPE=Release \
+    -S /zvecrs/zvec-sys/zvec-c-wrapper \
+    -B /build/wrapper-build && \
+    make -C /build/wrapper-build -j$(nproc)
+
+# Collect all .a files into /prebuilt/ and generate bindings.rs
+RUN mkdir -p /prebuilt && \
+    find /build/zvec-build /build/wrapper-build -name "*.a" -exec cp -n {} /prebuilt/ \; && \
+    /zvecrs/target/release/gen-bindings \
+        /zvecrs/zvec-sys/zvec-c-wrapper/include/zvec_c.h \
+        /prebuilt/bindings.rs
+
+# Lean final image — only the prebuilt artifacts
+FROM scratch
+COPY --from=builder /prebuilt /prebuilt

@@ -1,5 +1,6 @@
 [workspace]
-members = ["zvec-sys", "zvec-bindings"]
+members = ["zvec-sys", "zvec-bindings", "gen-bindings"]
+default-members = ["zvec-sys", "zvec-bindings"]
 resolver = "2"
 
 [workspace.package]

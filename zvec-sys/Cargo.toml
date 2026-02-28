@@ -10,7 +10,6 @@ categories = ["database", "external-ffi-bindings"]
 links = "zvec_c"
 
 [build-dependencies]
-bindgen = "0.70"
 
 [features]
 default = []
