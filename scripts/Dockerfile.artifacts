@@ -7,9 +7,10 @@
 
 FROM bitnami/minideb:bookworm AS builder
 
+# ── Stable layers (cached aggressively) ──────────────────────────────────────
+
 RUN install_packages \
     build-essential \
-    cmake \
     git \
     curl \
     clang \
@@ -17,19 +18,32 @@ RUN install_packages \
     ca-certificates \
     pkg-config \
     ninja-build \
-    python3
+    python3 \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    flex \
+    bison \
+    autoconf \
+    automake \
+    libtool
+
+# Bookworm ships cmake 3.25; Arrow 21 requires 3.26+ for bundled Thrift.
+# Install cmake 3.28 from the official binary release.
+RUN ARCH=$(uname -m) && \
+    CMAKE_ARCH=$([ "$ARCH" = "aarch64" ] && echo "aarch64" || echo "x86_64") && \
+    curl -fsSL "https://github.com/Kitware/CMake/releases/download/v3.28.6/cmake-3.28.6-linux-${CMAKE_ARCH}.sh" \
+         -o /tmp/cmake-install.sh && \
+    bash /tmp/cmake-install.sh --skip-license --prefix=/usr/local && \
+    rm /tmp/cmake-install.sh
+
 
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 ENV PATH="/root/.cargo/bin:$PATH"
 
-WORKDIR /zvecrs
-COPY . .
+# ── Clone + build zvec (expensive — lives before COPY so it stays cached) ────
 
-# Build the bindings generator for the target platform
-RUN cargo build -p gen-bindings --release
-
-# Clone zvec
 RUN git clone --depth 1 --branch v0.2.0 --recursive \
     https://github.com/alibaba/zvec.git /build/zvec
 
@@ -41,31 +55,48 @@ RUN sed -i \
     -e 's/CMAKE_POLICY(SET CMP0059 OLD)/CMAKE_POLICY(SET CMP0059 NEW)/g' \
     /build/zvec/thirdparty/antlr/antlr4/runtime/Cpp/CMakeLists.txt
 
-# Build zvec C++ library
-RUN cmake \
+# Configure zvec (separate layer from make so configure is cached independently)
+RUN ARCH=$(uname -m) && \
+    CPU_FLAG=$([ "$ARCH" = "aarch64" ] && echo "-DENABLE_ARMV8.2A=ON" || echo "-DENABLE_HASWELL=ON") && \
+    cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_PYTHON_BINDINGS=OFF \
     -DBUILD_TOOLS=OFF \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    $CPU_FLAG \
     -S /build/zvec \
-    -B /build/zvec-build && \
-    make -C /build/zvec-build -j$(nproc)
+    -B /build/zvec-build
 
-# Build C wrapper (only needs zvec headers, not the built libs)
+# Build zvec C++ library (~20-60 min depending on arch/hardware)
+RUN make -C /build/zvec-build -j$(nproc) || \
+    (echo "=== Arrow configure log ===" && \
+     cat /build/zvec-build/thirdparty/arrow/arrow/src/ARROW.BUILD-stamp/ARROW.BUILD-configure-*.log 2>/dev/null; \
+     exit 1)
+
+# ── Source-dependent layers (invalidated on source changes) ──────────────────
+
+WORKDIR /zvecrs
+COPY . .
+
+# Build the bindings generator for the target platform
+RUN cargo build -p gen-bindings --release
+
+# Configure and build C wrapper (only needs zvec headers, not the built libs)
 RUN cmake \
     -DZVEC_SRC_DIR=/build/zvec \
     -DCMAKE_BUILD_TYPE=Release \
     -S /zvecrs/zvec-sys/zvec-c-wrapper \
-    -B /build/wrapper-build && \
-    make -C /build/wrapper-build -j$(nproc)
+    -B /build/wrapper-build
+RUN make -C /build/wrapper-build -j$(nproc)
 
-# Collect all .a files into /prebuilt/ and generate bindings.rs
+# Collect all .a files and generate bindings.rs
 RUN mkdir -p /prebuilt && \
     find /build/zvec-build /build/wrapper-build -name "*.a" -exec cp -n {} /prebuilt/ \; && \
     /zvecrs/target/release/gen-bindings \
         /zvecrs/zvec-sys/zvec-c-wrapper/include/zvec_c.h \
         /prebuilt/bindings.rs
 
-# Lean final image — only the prebuilt artifacts
+# ── Lean final image — only the prebuilt artifacts ───────────────────────────
+
 FROM scratch
 COPY --from=builder /prebuilt /prebuilt
